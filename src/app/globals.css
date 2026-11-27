@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body { height: 100%; background: #09090b; color: #e4e4e7; }
+body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #2f2f38; border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.input {
+  @apply w-full rounded-xl border border-line bg-[#101013] px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none transition focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50;
+}
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-primary { @apply btn bg-gradient-to-r from-violet-600 to-neon-pink text-white hover:shadow-glow hover:brightness-110; }
+.btn-ghost { @apply btn border border-line bg-card text-zinc-200 hover:bg-card2; }
+.btn-danger { @apply btn border border-red-900/60 bg-red-950/40 text-red-300 hover:bg-red-950/70; }
+.label { @apply mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-400; }
+.pill { @apply rounded-full border border-line bg-card px-3 py-1 text-xs text-zinc-300 transition hover:border-violet-500/60; }
+.pill-active { @apply border-transparent bg-gradient-to-r from-violet-600 to-neon-pink text-white; }
