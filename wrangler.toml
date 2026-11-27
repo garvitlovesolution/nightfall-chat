@@ -1,0 +1,21 @@
+name = "nightfall-chat"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+# Secrets (set in Cloudflare dashboard -> Settings -> Variables and Secrets):
+#   OPENROUTER_API_KEY   (optional – users can also paste their own key in the UI)
+#
+# Optional server-side persistence (disabled by default; the app is local-first).
+# 1) npx wrangler d1 create nightfall      -> paste the id below
+# 2) npx wrangler d1 execute nightfall --remote --file=./schema.sql
+# 3) set NEXT_PUBLIC_STORAGE_MODE=cloud in Pages env vars
+#
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "nightfall"
+# database_id = "REPLACE_ME"
+#
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "REPLACE_ME"
