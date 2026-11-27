@@ -46,7 +46,7 @@ export function HistoryView() {
                     <span className="truncate font-semibold text-white">{char?.name ?? "Deleted character"}</span>
                     <span className="shrink-0 text-xs text-zinc-500">{timeAgo(c.updatedAt)} · {c.messages.length} msgs</span>
                   </div>
-                  <p className="truncate text-sm text-zinc-400">{last ? activeText(last).replace(/[*]/g, "") : "Empty chat"}</p>
+                  <p className="truncate text-sm text-zinc-400">{last ? activeText(last).replace(/[*]/g, "") || (last.attachments?.length ? "📷 Media" : "Empty chat") : "Empty chat"}</p>
                 </div>
               </button>
               <button onClick={() => remove(c)} aria-label="Delete chat" className="rounded-lg p-2 text-zinc-500 hover:bg-red-950/50 hover:text-red-300">

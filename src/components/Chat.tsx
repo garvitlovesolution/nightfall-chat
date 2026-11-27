@@ -2,19 +2,19 @@
 
 import {
   Brain, Check, ChevronLeft, ChevronRight, Copy, FastForward, Image as ImageIcon, Loader2, Menu, Pencil,
-  Plus, RefreshCw, Send, SlidersHorizontal, Square, Trash2, X,
+  Paperclip, Plus, RefreshCw, Send, SlidersHorizontal, Sparkles, Square, Trash2, X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as db from "@/lib/db";
 import { MODELS } from "@/lib/models";
 import { activeText, buildApiMessages, fillVars } from "@/lib/prompt";
 import { streamChat } from "@/lib/stream";
-import type { Character, Chat, Message } from "@/lib/types";
-import { cssUrl, uid } from "@/lib/util";
+import type { Attachment, Character, Chat, Message } from "@/lib/types";
+import { autoAvatar, cssUrl, fileToImageDataUrl, isVideoUrl, MAX_VIDEO_BYTES, uid, urlToDataUrl } from "@/lib/util";
 import { useApp } from "./AppProvider";
 import { ChatDrawer, type DrawerTab } from "./ChatDrawer";
 import { RichText } from "./RichText";
-import { Avatar } from "./ui";
+import { AttachmentView, Avatar } from "./ui";
 
 const STUB: Character = {
   id: "missing", name: "Unknown", tagline: "", avatar: "", category: "Custom", tags: [],
@@ -39,6 +39,9 @@ export function ChatView({ chatId }: { chatId: string }) {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [drawer, setDrawer] = useState<DrawerTab | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [pending, setPending] = useState<Attachment[]>([]);
+  const [imgBusy, setImgBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const chatRef = useRef<Chat | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -158,11 +161,77 @@ export function ChatView({ chatId }: { chatId: string }) {
 
   const send = async () => {
     const text = input.trim();
-    if (!text || streaming || !chat) return;
+    if ((!text && !pending.length) || streaming || !chat) return;
+    const attachments = pending;
     setInput("");
+    setPending([]);
     stick.current = true;
-    commit((c) => ({ ...c, messages: [...c.messages, { id: uid(), role: "user", swipes: [text], swipeIndex: 0, createdAt: Date.now() }] }));
+    commit((c) => ({
+      ...c,
+      messages: [...c.messages, { id: uid(), role: "user", swipes: [text], swipeIndex: 0, attachments: attachments.length ? attachments : undefined, createdAt: Date.now() }],
+    }));
     await generate("new");
+  };
+
+  const onFiles = async (files: FileList | null) => {
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      if (pending.length >= 4) { notify("Max 4 attachments per message.", "error"); break; }
+      try {
+        if (file.type.startsWith("image/")) {
+          const src = await fileToImageDataUrl(file);
+          setPending((p) => [...p, { id: uid(), type: "image", src }]);
+        } else if (file.type.startsWith("video/")) {
+          if (file.size > MAX_VIDEO_BYTES) { notify("Video is too large (max 25 MB).", "error"); continue; }
+          const id = uid();
+          await db.saveMediaBlob(id, file);
+          setPending((p) => [...p, { id, type: "video", mediaId: id }]);
+        } else notify("Only images and videos are supported.", "error");
+      } catch (e) {
+        notify(e instanceof Error ? e.message : "Could not attach file", "error");
+      }
+    }
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const removePending = (a: Attachment) => {
+    if (a.mediaId) void db.deleteMediaBlob(a.mediaId);
+    setPending((p) => p.filter((x) => x.id !== a.id));
+  };
+
+  const generateImage = async () => {
+    const cur = chatRef.current;
+    if (!cur || imgBusy || streaming) return;
+    setImgBusy(true);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "scene",
+          character: { name: character.name, tagline: character.tagline, personality: fillVars(character.personality, userName, character.name) },
+          recent: cur.messages.slice(-3).map((m) => fillVars(activeText(m), userName, character.name)),
+        }),
+      });
+      const j = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !j.url) throw new Error(j.error || "Image generation failed");
+      let src = j.url;
+      try { src = await urlToDataUrl(j.url); } catch { /* keep the remote URL if CORS blocks local copy */ }
+      stick.current = true;
+      commit((c) => ({
+        ...c,
+        messages: [...c.messages, { id: uid(), role: "assistant", swipes: [""], swipeIndex: 0, attachments: [{ id: uid(), type: "image", src, generated: true }], createdAt: Date.now() }],
+      }));
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Image generation failed", "error");
+    } finally {
+      setImgBusy(false);
+    }
+  };
+
+  const deleteMessage = (m: Message) => {
+    for (const a of m.attachments ?? []) if (a.mediaId) void db.deleteMediaBlob(a.mediaId);
+    commit((c) => ({ ...c, messages: c.messages.filter((x) => x.id !== m.id) }));
   };
 
   const swipe = (id: string, delta: number) =>
@@ -209,7 +278,7 @@ export function ChatView({ chatId }: { chatId: string }) {
 
   const lastId = chat.messages[chat.messages.length - 1]?.id;
   const lastIsUser = chat.messages[chat.messages.length - 1]?.role === "user";
-  const bgSrc = character.avatar || "";
+  const bgSrc = character.avatar && !isVideoUrl(character.avatar) ? character.avatar : autoAvatar(character.name);
   const modelKnown = MODELS.some((m) => m.id === chat.model);
 
   return (
@@ -304,7 +373,12 @@ export function ChatView({ chatId }: { chatId: string }) {
                       </span>
                     ) : (
                       <>
-                        <RichText text={fillVars(text, userName, character.name)} />
+                        {m.attachments?.length ? (
+                          <div className={`flex flex-wrap gap-2 ${text ? "mb-2" : ""} ${isUser ? "justify-end" : ""}`}>
+                            {m.attachments.map((a) => <AttachmentView key={a.id} a={a} className="max-h-80 max-w-full sm:max-w-sm" />)}
+                          </div>
+                        ) : null}
+                        {text ? <RichText text={fillVars(text, userName, character.name)} /> : null}
                         {streaming && isLast && !isUser && <span className="ml-0.5 inline-block h-4 w-1.5 animate-blink bg-violet-400 align-middle" />}
                       </>
                     )}
@@ -320,10 +394,10 @@ export function ChatView({ chatId }: { chatId: string }) {
                         </span>
                       )}
                       <IconBtn label="Copy" onClick={() => copy(m)}>{copied === m.id ? <Check size={15} className="text-green-400" /> : <Copy size={15} />}</IconBtn>
-                      <IconBtn label="Edit" onClick={() => setEditing({ id: m.id, text })}><Pencil size={15} /></IconBtn>
-                      {!isUser && isLast && <IconBtn label="Regenerate" onClick={() => generate("swipe", m.id)}><RefreshCw size={15} /></IconBtn>}
-                      {!isUser && isLast && <IconBtn label="Continue" onClick={() => generate("continue", m.id)}><FastForward size={15} /></IconBtn>}
-                      <IconBtn label="Delete" onClick={() => commit((c) => ({ ...c, messages: c.messages.filter((x) => x.id !== m.id) }))}><Trash2 size={15} /></IconBtn>
+                      {(text || !m.attachments?.length) && <IconBtn label="Edit" onClick={() => setEditing({ id: m.id, text })}><Pencil size={15} /></IconBtn>}
+                      {!isUser && isLast && !!text && <IconBtn label="Regenerate" onClick={() => generate("swipe", m.id)}><RefreshCw size={15} /></IconBtn>}
+                      {!isUser && isLast && !!text && <IconBtn label="Continue" onClick={() => generate("continue", m.id)}><FastForward size={15} /></IconBtn>}
+                      <IconBtn label="Delete" onClick={() => deleteMessage(m)}><Trash2 size={15} /></IconBtn>
                     </div>
                   )}
                 </div>
@@ -341,7 +415,22 @@ export function ChatView({ chatId }: { chatId: string }) {
 
       {/* Composer */}
       <div className="relative z-10 border-t border-line bg-bg/80 p-3 backdrop-blur-md sm:px-6">
+        {pending.length > 0 && (
+          <div className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-2">
+            {pending.map((a) => (
+              <div key={a.id} className="relative">
+                <AttachmentView a={a} className="h-20 w-20 object-cover" />
+                <button onClick={() => removePending(a)} aria-label="Remove attachment" className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-black text-white ring-1 ring-line"><X size={12} /></button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="mx-auto flex max-w-3xl items-end gap-2">
+          <input ref={fileRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => void onFiles(e.target.files)} />
+          <button onClick={() => fileRef.current?.click()} aria-label="Attach photo or video" title="Attach photo or video" className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-line bg-card text-zinc-300 transition hover:text-white"><Paperclip size={18} /></button>
+          <button onClick={() => void generateImage()} disabled={imgBusy || streaming} aria-label="Generate picture" title="Generate a picture of the current scene" className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-line bg-card text-neon-pink transition hover:text-white disabled:opacity-40">
+            {imgBusy ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+          </button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -357,7 +446,7 @@ export function ChatView({ chatId }: { chatId: string }) {
           {streaming ? (
             <button onClick={() => abortRef.current?.abort()} aria-label="Stop generating" className="btn-danger h-11 w-11 shrink-0 !rounded-full !p-0"><Square size={16} fill="currentColor" /></button>
           ) : (
-            <button onClick={() => void send()} disabled={!input.trim()} aria-label="Send" className="btn-primary h-11 w-11 shrink-0 !rounded-full !p-0"><Send size={17} /></button>
+            <button onClick={() => void send()} disabled={!input.trim() && !pending.length} aria-label="Send" className="btn-primary h-11 w-11 shrink-0 !rounded-full !p-0"><Send size={17} /></button>
           )}
         </div>
       </div>

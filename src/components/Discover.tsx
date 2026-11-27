@@ -1,13 +1,90 @@
 "use client";
 
-import { MessageCircle, Pencil, Search, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, MessageCircle, Pencil, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import * as db from "@/lib/db";
 import { CATEGORIES, type Character } from "@/lib/types";
+import { uid, urlToDataUrl } from "@/lib/util";
 import { useApp } from "./AppProvider";
-import { Avatar, PageHeader } from "./ui";
+import { Avatar, Modal, PageHeader } from "./ui";
 
-function Card({ c }: { c: Character }) {
+function Profile({ c, onClose }: { c: Character; onClose: () => void }) {
+  const { openCharacter, reload, notify } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<string | null>(null);
+  const media = c.media ?? [];
+
+  const generate = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "portrait", character: { name: c.name, tagline: c.tagline, personality: c.personality } }),
+      });
+      const j = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !j.url) throw new Error(j.error || "Image generation failed");
+      let src = j.url;
+      try { src = await urlToDataUrl(j.url); } catch { /* keep remote URL */ }
+      await db.saveCharacter({ ...c, media: [...media, { id: uid(), type: "image", src }] });
+      await reload();
+      notify("Added to gallery ✨");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Image generation failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const live = view ? media.find((m) => m.id === view) : null;
+  return (
+    <Modal title={c.name} onClose={onClose} wide>
+      <div className="grid gap-5 md:grid-cols-[260px_1fr]">
+        <div>
+          <Avatar src={c.avatar} name={c.name} className="aspect-[3/4] w-full rounded-2xl border border-line" />
+          <button onClick={() => { onClose(); void openCharacter(c.id); }} className="btn-primary mt-3 w-full"><MessageCircle size={16} /> Start chat</button>
+        </div>
+        <div className="min-w-0 space-y-4">
+          <div>
+            <span className="rounded-full bg-card2 px-2.5 py-0.5 text-xs text-zinc-300">{c.category}</span>
+            <p className="mt-2 text-sm text-zinc-300">{c.tagline}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">{c.tags.map((t) => <span key={t} className="rounded-md bg-card2 px-2 py-0.5 text-[11px] text-zinc-400">#{t}</span>)}</div>
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="label !mb-0">Gallery · {media.length}</h3>
+              <button onClick={generate} disabled={busy} className="btn-ghost !px-3 !py-1.5 !text-xs">
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />} Generate AI photo
+              </button>
+            </div>
+            {media.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-zinc-500">No photos or videos yet. Generate one, or add your own via Edit.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {media.map((m) => (
+                  <button key={m.id} onClick={() => setView(m.id)} className="relative aspect-[3/4] overflow-hidden rounded-xl bg-card2">
+                    {m.type === "video"
+                      ? <video src={m.src} muted loop playsInline autoPlay className="h-full w-full object-cover" />
+                      : /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.src} alt="" className="h-full w-full object-cover transition hover:scale-105" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      {live && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/90 p-4" onClick={() => setView(null)}>
+          {live.type === "video"
+            ? <video src={live.src} controls autoPlay loop playsInline className="max-h-full max-w-full rounded-xl" onClick={(e) => e.stopPropagation()} />
+            : /* eslint-disable-next-line @next/next/no-img-element */ <img src={live.src} alt="" className="max-h-full max-w-full rounded-xl" />}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function Card({ c, onOpen }: { c: Character; onOpen: () => void }) {
   const { openCharacter, go, reload, notify } = useApp();
   const remove = async () => {
     if (!confirm(`Delete ${c.name}? Existing chats with them will stay in your history.`)) return;
@@ -17,10 +94,11 @@ function Card({ c }: { c: Character }) {
   };
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-card transition hover:-translate-y-0.5 hover:border-violet-500/50 hover:shadow-glow">
-      <button onClick={() => openCharacter(c.id)} className="relative block aspect-[4/3] w-full overflow-hidden text-left">
+      <button onClick={onOpen} aria-label={`View ${c.name}`} className="relative block aspect-[4/3] w-full overflow-hidden text-left">
         <Avatar src={c.avatar} name={c.name} className="h-full w-full transition duration-500 group-hover:scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/10 to-transparent" />
         <span className="absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-medium text-zinc-200 backdrop-blur">{c.category}</span>
+        {!!c.media?.length && <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-zinc-200 backdrop-blur">📷 {c.media.length}</span>}
       </button>
       <div className="flex flex-1 flex-col p-4 pt-2">
         <h3 className="truncate text-lg font-semibold text-white">{c.name}</h3>
@@ -51,6 +129,8 @@ export function Discover() {
   const [cat, setCat] = useState<string>("All");
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const profile = characters.find((c) => c.id === openId) ?? null;
 
   const topTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -107,9 +187,10 @@ export function Discover() {
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {list.map((c) => <Card key={c.id} c={c} />)}
+          {list.map((c) => <Card key={c.id} c={c} onOpen={() => setOpenId(c.id)} />)}
         </div>
       )}
+      {profile && <Profile c={profile} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

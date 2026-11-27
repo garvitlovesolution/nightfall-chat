@@ -1,10 +1,10 @@
 "use client";
 
-import { Dices, Loader2, Wand2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Dices, ImagePlus, Loader2, Plus, Trash2, Upload, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import * as db from "@/lib/db";
-import { CATEGORIES, type Category, type Character } from "@/lib/types";
-import { autoAvatar, uid } from "@/lib/util";
+import { CATEGORIES, type Category, type Character, type MediaItem } from "@/lib/types";
+import { autoAvatar, fileToImageDataUrl, isVideoUrl, uid, urlToDataUrl } from "@/lib/util";
 import { useApp } from "./AppProvider";
 import { Avatar, Field, PageHeader } from "./ui";
 
@@ -19,6 +19,11 @@ export function Creator({ editId }: { editId?: string }) {
   const [idea, setIdea] = useState("");
   const [busy, setBusy] = useState(false);
   const [hue, setHue] = useState<number | undefined>();
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [imgBusy, setImgBusy] = useState<"avatar" | "gallery" | null>(null);
+  const avatarFile = useRef<HTMLInputElement>(null);
+  const galleryFile = useRef<HTMLInputElement>(null);
   const editing = editId ? characters.find((c) => c.id === editId) : undefined;
 
   useEffect(() => {
@@ -28,6 +33,7 @@ export function Creator({ editId }: { editId?: string }) {
         tags: editing.tags.join(", "), personality: editing.personality, scenario: editing.scenario,
         greeting: editing.greeting, exampleDialogue: editing.exampleDialogue,
       });
+      setMedia(editing.media ?? []);
     }
   }, [editing]);
 
@@ -67,6 +73,57 @@ export function Creator({ editId }: { editId?: string }) {
     }
   };
 
+  const generatePortrait = async (target: "avatar" | "gallery") => {
+    if (!f.name.trim()) return notify("Give your character a name first.", "error");
+    setImgBusy(target);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: target === "avatar" ? "avatar" : "portrait", character: { name: f.name, tagline: f.tagline, personality: f.personality } }),
+      });
+      const j = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !j.url) throw new Error(j.error || "Image generation failed");
+      let src = j.url;
+      try { src = await urlToDataUrl(j.url, target === "avatar" ? 512 : 1024); } catch { /* keep remote URL */ }
+      if (target === "avatar") set("avatar", src);
+      else setMedia((m) => [...m, { id: uid(), type: "image", src }]);
+      notify("Image generated ✨");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Image generation failed", "error");
+    } finally {
+      setImgBusy(null);
+    }
+  };
+
+  const uploadAvatar = async (file?: File) => {
+    if (!file) return;
+    try { set("avatar", await fileToImageDataUrl(file, 512)); } catch (e) { notify(e instanceof Error ? e.message : "Upload failed", "error"); }
+  };
+
+  const uploadGallery = async (files: FileList | null) => {
+    for (const file of Array.from(files ?? [])) {
+      if (!file.type.startsWith("image/")) {
+        notify("Upload images here. For videos, paste a direct .mp4/.webm link below.", "error");
+        continue;
+      }
+      try {
+        const src = await fileToImageDataUrl(file);
+        setMedia((m) => [...m, { id: uid(), type: "image", src }]);
+      } catch (e) {
+        notify(e instanceof Error ? e.message : "Upload failed", "error");
+      }
+    }
+    if (galleryFile.current) galleryFile.current.value = "";
+  };
+
+  const addMediaUrl = () => {
+    const u = mediaUrl.trim();
+    if (!/^https?:\/\//i.test(u)) return notify("Paste a full http(s) link to an image or video.", "error");
+    setMedia((m) => [...m, { id: uid(), type: isVideoUrl(u) ? "video" : "image", src: u }]);
+    setMediaUrl("");
+  };
+
   const save = async () => {
     if (!f.name.trim() || !f.personality.trim() || !f.greeting.trim()) {
       return notify("Name, personality and first message are required.", "error");
@@ -83,6 +140,7 @@ export function Creator({ editId }: { editId?: string }) {
       scenario: f.scenario.trim(),
       greeting: f.greeting.trim(),
       exampleDialogue: f.exampleDialogue.trim(),
+      media,
       builtin: editing?.builtin,
       createdAt: editing?.createdAt ?? now,
       updatedAt: now,
@@ -127,6 +185,11 @@ export function Creator({ editId }: { editId?: string }) {
           >
             <Dices size={14} /> Auto-generate avatar
           </button>
+          <button onClick={() => void generatePortrait("avatar")} disabled={!!imgBusy} className="btn-ghost mt-2 w-full !text-xs">
+            {imgBusy === "avatar" ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} AI portrait
+          </button>
+          <button onClick={() => avatarFile.current?.click()} className="btn-ghost mt-2 w-full !text-xs"><Upload size={14} /> Upload photo</button>
+          <input ref={avatarFile} type="file" accept="image/*" hidden onChange={(e) => { void uploadAvatar(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -138,7 +201,7 @@ export function Creator({ editId }: { editId?: string }) {
             </Field>
           </div>
           <Field label="Tagline"><input className="input" value={f.tagline} onChange={(e) => set("tagline", e.target.value)} maxLength={160} placeholder="A one-line hook shown on the card" /></Field>
-          <Field label="Avatar URL" hint="Paste an image link, or use auto-generate. Falls back to a generated avatar if the image fails to load.">
+          <Field label="Avatar URL" hint="Paste an image or .mp4/.webm video link (videos autoplay muted as an animated avatar), or use the buttons on the left.">
             <input className="input" value={f.avatar.startsWith("data:") ? "" : f.avatar} onChange={(e) => set("avatar", e.target.value)} placeholder="https://…" />
           </Field>
           <Field label="Tags" hint="Comma-separated, e.g. tsundere, school, comedy">
@@ -159,6 +222,31 @@ export function Creator({ editId }: { editId?: string }) {
           <textarea className="input min-h-[120px] font-mono text-xs" value={f.exampleDialogue} onChange={(e) => set("exampleDialogue", e.target.value)} placeholder={'{{user}}: Hello!\n{{char}}: *waves* "Well, hello there."'} />
         </Field>
       </div>
+
+      <section className="mt-6 rounded-2xl border border-line bg-card p-4">
+        <h3 className="text-sm font-semibold text-white">Gallery: photos &amp; videos</h3>
+        <p className="mt-1 text-xs text-zinc-500">Shown on the character&apos;s profile. Upload photos, generate AI pictures, or paste direct links to images / .mp4 / .webm videos.</p>
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {media.map((m) => (
+            <div key={m.id} className="group relative aspect-square overflow-hidden rounded-xl bg-card2">
+              {m.type === "video" ? <video src={m.src} muted loop playsInline autoPlay className="h-full w-full object-cover" /> : /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.src} alt="" className="h-full w-full object-cover" />}
+              <button onClick={() => setMedia((x) => x.filter((y) => y.id !== m.id))} aria-label="Remove media" className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition group-hover:opacity-100"><Trash2 size={13} /></button>
+              {m.type === "video" && <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 text-[10px] text-white">VIDEO</span>}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={() => galleryFile.current?.click()} className="btn-ghost !text-xs"><Upload size={14} /> Upload photos</button>
+          <input ref={galleryFile} type="file" accept="image/*" multiple hidden onChange={(e) => void uploadGallery(e.target.files)} />
+          <button onClick={() => void generatePortrait("gallery")} disabled={!!imgBusy} className="btn-ghost !text-xs">
+            {imgBusy === "gallery" ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />} Generate AI picture
+          </button>
+        </div>
+        <div className="mt-2 flex gap-2">
+          <input className="input" value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addMediaUrl()} placeholder="https://…/clip.mp4 or image link" />
+          <button onClick={addMediaUrl} className="btn-ghost shrink-0 !px-3" aria-label="Add link"><Plus size={16} /></button>
+        </div>
+      </section>
 
       <div className="mt-6 flex justify-end gap-2">
         <button onClick={() => go("")} className="btn-ghost">Cancel</button>

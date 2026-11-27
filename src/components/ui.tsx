@@ -2,13 +2,43 @@
 
 import { X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { autoAvatar } from "@/lib/util";
+import { getMediaBlob } from "@/lib/db";
+import type { Attachment } from "@/lib/types";
+import { autoAvatar, isVideoUrl } from "@/lib/util";
 
 export function Avatar({ src, name, className = "" }: { src?: string; name: string; className?: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [src]);
+  const resolved = !src || failed ? autoAvatar(name) : src;
+  if (!failed && src && isVideoUrl(src)) {
+    return <video src={src} autoPlay loop muted playsInline onError={() => setFailed(true)} className={`object-cover ${className}`} />;
+  }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={!src || failed ? autoAvatar(name) : src} alt={name} onError={() => setFailed(true)} className={`object-cover ${className}`} draggable={false} />;
+  return <img src={resolved} alt={name} onError={() => setFailed(true)} className={`object-cover ${className}`} draggable={false} />;
+}
+
+/** Renders a chat attachment (image / video, local or remote). */
+export function AttachmentView({ a, className = "" }: { a: Attachment; className?: string }) {
+  const [url, setUrl] = useState<string | null>(a.src ?? null);
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    if (a.src || !a.mediaId) return;
+    let obj: string | null = null;
+    let alive = true;
+    getMediaBlob(a.mediaId).then((b) => {
+      if (!alive) return;
+      if (b) { obj = URL.createObjectURL(b); setUrl(obj); } else setBroken(true);
+    });
+    return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
+  }, [a.src, a.mediaId]);
+
+  if (broken) return <div className="rounded-xl border border-line bg-card2 px-3 py-6 text-center text-xs text-zinc-500">Media unavailable</div>;
+  if (!url) return <div className={`animate-pulse rounded-xl bg-card2 ${className}`} style={{ minHeight: 120 }} />;
+  if (a.type === "video") return <video src={url} controls playsInline preload="metadata" className={`rounded-xl bg-black ${className}`} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="attachment" onError={() => setBroken(true)} className={`rounded-xl ${className}`} /></a>
+  );
 }
 
 export function Modal({

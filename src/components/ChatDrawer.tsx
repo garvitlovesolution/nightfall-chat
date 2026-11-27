@@ -2,7 +2,7 @@
 
 import { BookOpen, Brain, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { DEFAULT_DIRECTIVE } from "@/lib/models";
+import { DEFAULT_DIRECTIVE, STORY_STYLES } from "@/lib/models";
 import { triggeredLore } from "@/lib/prompt";
 import type { Chat, LoreEntry } from "@/lib/types";
 import { uid } from "@/lib/util";
@@ -153,6 +153,14 @@ export function ChatDrawer({
                 <input type="checkbox" checked={chat.params.background} className="h-4 w-4 accent-violet-500"
                   onChange={(e) => update((c) => ({ ...c, params: { ...c.params, background: e.target.checked } }))} />
               </label>
+              <div>
+                <label className="label">Story style</label>
+                <select className="input" value={chat.params.style ?? "default"}
+                  onChange={(e) => update((c) => ({ ...c, params: { ...c.params, style: e.target.value } }))}>
+                  {STORY_STYLES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </select>
+                <p className="mt-1 text-xs text-zinc-500">Steers the pacing and tone of the romance or drama.</p>
+              </div>
               <div>
                 <label className="label">Roleplay directive (system)</label>
                 <textarea className="input min-h-[220px] text-xs" value={chat.params.directive}
