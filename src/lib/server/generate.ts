@@ -1,4 +1,4 @@
-import { cleanMessages, json, num, OPENROUTER_URL, resolveKey, sanitizeModel, upstreamError, upstreamHeaders } from "./openrouter";
+import { adaptMessages, cleanMessages, json, num, OPENROUTER_URL, resolveKey, sanitizeModel, upstreamError, upstreamHeaders } from "./openrouter";
 
 const SYSTEM = `You are an expert character designer for an AI roleplay chat platform.
 Given a short idea, design a rich, original character. Reply with ONLY one JSON object (no markdown, no commentary) with exactly these keys:
@@ -43,7 +43,7 @@ export async function handleGenerate(req: Request): Promise<Response> {
   if (!idea) return json({ error: "Describe your character idea first." }, 400);
 
   const key = resolveKey(req);
-  if (!key) return json({ error: "No OpenRouter API key. Add one in Settings or set OPENROUTER_API_KEY on the server." }, 401);
+  if (!key) return json({ error: "Server is not configured: OPENROUTER_API_KEY is missing." }, 401);
 
   const existing = body.existing && typeof body.existing === "object" ? (body.existing as Record<string, unknown>) : {};
   const hint = Object.entries(existing)
@@ -61,8 +61,8 @@ export async function handleGenerate(req: Request): Promise<Response> {
     method: "POST",
     headers: upstreamHeaders(req, key),
     body: JSON.stringify({
-      model: sanitizeModel(body.model, "google/gemini-2.0-flash-001"),
-      messages,
+      model: sanitizeModel(undefined),
+      messages: adaptMessages(sanitizeModel(undefined), messages),
       temperature: num(0.9, 0, 2, 0.9),
       max_tokens: 2200,
     }),

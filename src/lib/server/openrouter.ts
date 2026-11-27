@@ -8,13 +8,27 @@ export function json(body: unknown, status = 200): Response {
   });
 }
 
-export function resolveKey(req: Request): string | null {
-  const user = req.headers.get("x-openrouter-key")?.trim();
-  return user || process.env.OPENROUTER_API_KEY || null;
+// The key lives ONLY on the server. Any client-supplied key header is ignored.
+export function resolveKey(_req: Request): string | null {
+  return process.env.OPENROUTER_API_KEY || null;
 }
 
-export function sanitizeModel(model: unknown, fallback: string): string {
-  return typeof model === "string" && /^[\w.\-:/]{3,100}$/.test(model) ? model : fallback;
+export const FREE_DEFAULT = "google/gemma-4-31b-it:free";
+
+/** Only free models are allowed, so no request can ever spend credit. */
+export function sanitizeModel(model: unknown): string {
+  return typeof model === "string" && /^[\w.\-/]{3,100}:free$/.test(model) ? model : FREE_DEFAULT;
+}
+
+/** Some free providers (Gemma) reject a system role, so fold it into the first user turn. */
+export function adaptMessages(model: string, msgs: { role: string; content: string }[]) {
+  if (!/gemma/i.test(model)) return msgs;
+  const sys = msgs.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+  const rest = msgs.filter((m) => m.role !== "system");
+  if (!sys) return rest;
+  // Gemma needs the first turn to be "user", and our chats open with the character's greeting.
+  if (rest[0]?.role === "assistant") return [{ role: "user", content: `[Instructions]\n${sys}\n\n[Begin the roleplay]` }, ...rest];
+  return [{ role: "user", content: `[Instructions]\n${sys}` }, { role: "assistant", content: "Understood." }, ...rest];
 }
 
 export function num(v: unknown, min: number, max: number, fallback: number): number {
@@ -49,7 +63,7 @@ export async function upstreamError(res: Response): Promise<Response> {
     const j = (await res.json()) as { error?: { message?: string } | string };
     if (j.error) message = typeof j.error === "string" ? j.error : j.error.message || message;
   } catch {}
-  if (res.status === 401) message = "OpenRouter rejected the API key. Check it in Settings.";
+  if (res.status === 401) message = "The server's OpenRouter API key was rejected.";
   if (res.status === 402) message = "OpenRouter account has insufficient credits for this model.";
   return json({ error: message }, res.status);
 }
