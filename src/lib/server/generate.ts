@@ -5,7 +5,7 @@ Given a short idea, design a rich, original character. Reply with ONLY one JSON 
 {
  "name": string,
  "tagline": string (max 100 chars, a hook),
- "category": one of "Anime","Fantasy","Sci-Fi","Modern","Romance","Villain","Helper","Custom",
+ "category": one of "Anime","Fantasy","Sci-Fi","Modern","Romance","Drama","Villain","Helper","Custom",
  "tags": array of 3-6 short lowercase strings,
  "personality": string (150-250 words: personality, speech style, mannerisms, quirks, motivations, secrets. Use {{user}} for the human),
  "scenario": string (2-4 sentences setting the scene),
@@ -14,7 +14,7 @@ Given a short idea, design a rich, original character. Reply with ONLY one JSON 
 }
 Keep content tasteful and non-explicit.`;
 
-const CATS = ["Anime", "Fantasy", "Sci-Fi", "Modern", "Romance", "Villain", "Helper", "Custom"];
+const CATS = ["Anime", "Fantasy", "Sci-Fi", "Modern", "Romance", "Drama", "Villain", "Helper", "Custom"];
 
 function str(v: unknown, max: number): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
