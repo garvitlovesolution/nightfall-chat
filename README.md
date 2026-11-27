@@ -41,7 +41,7 @@ npm run preview                  # build with next-on-pages and run in the real 
 ```
 
 ## Features
-- **Discover** – 8 hand-written characters, category pills, search, tag filters.
+- **Discover** – 20 hand-written adult women characters (romance, drama, anime, fantasy, sci-fi, villain, helper) with AI-made portraits in `public/avatars/`, category pills, search, tag filters.
 - **Creator Studio** – all character fields, auto-avatar generator, and **Magic Enhance** (`/api/generate-character`, alias `/api/enhance`) which expands one sentence into a full character.
 - **Chat engine** – streaming SSE, `*actions*` styled as muted italics and `"dialogue"` highlighted, regenerate with swipeable variations (`‹ 1/3 ›`), continue, edit, delete, copy, stop-generation.
 - **Personas** – multiple personas, set a default, switch per conversation.
@@ -82,3 +82,14 @@ The key is the only credential, so treat it like a password.
   the code is already edge-clean, so only the build config changes.
 - `.npmrc` sets `legacy-peer-deps=true` to resolve a wrangler / workers-types peer conflict.
 - Browser-local data is cleared if the user wipes site data — use Export or cloud sync for safety.
+
+## Photos & videos
+- **Send photos in chat** (paperclip): images are shrunk in the browser and sent to a vision-capable free model (Gemma 4). Videos (up to 25 MB) are stored locally in IndexedDB and shown in the chat.
+- **AI pictures** (sparkle button in chat, and "AI portrait" / "Generate AI photo" in the creator and character profile): the server writes a visual prompt with a free model, then the image comes from the free Pollinations service (no key, no credit). Prompts are forced tasteful/safe-for-work.
+- **Gallery**: every character has a profile with photos and videos (upload, AI-generated, or paste direct image / .mp4 / .webm links). A video link as the avatar becomes an animated avatar.
+- AI *video* generation is not included: all current OpenRouter video models are paid.
+
+## Characters & content policy
+- The built-in catalog is 20 adult (25+) women across Romance, Drama, Anime, Fantasy, Sci-Fi, Modern, Villain and Helper. Romance is emotional and tasteful; the default directive tells the model to "fade to black" instead of writing explicit scenes.
+- Story-style presets (slow-burn, enemies-to-lovers, drama/angst, comfort, playful) live in the chat Parameters drawer.
+- Portraits were generated with the free Pollinations service and carry its small free-tier credit in the corner. Replace the files in `public/avatars/<name>.jpg` with your own art any time.
