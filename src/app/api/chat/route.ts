@@ -2,6 +2,7 @@ import {
   cleanMessages,
   json,
   num,
+  adaptMessages,
   OPENROUTER_URL,
   resolveKey,
   sanitizeModel,
@@ -24,9 +25,10 @@ export async function POST(req: Request): Promise<Response> {
 
   const key = resolveKey(req);
   if (!key) {
-    return json({ error: "No OpenRouter API key. Add yours in Settings, or set OPENROUTER_API_KEY on the server." }, 401);
+    return json({ error: "Server is not configured: OPENROUTER_API_KEY is missing." }, 401);
   }
 
+  const model = sanitizeModel(body.model);
   let upstream: Response;
   try {
     upstream = await fetch(OPENROUTER_URL, {
@@ -34,8 +36,8 @@ export async function POST(req: Request): Promise<Response> {
       headers: upstreamHeaders(req, key),
       signal: req.signal, // aborting in the browser cancels the upstream generation
       body: JSON.stringify({
-        model: sanitizeModel(body.model, "mistralai/mistral-nemo"),
-        messages,
+        model,
+        messages: adaptMessages(model, messages),
         temperature: num(body.temperature, 0, 2, 0.9),
         max_tokens: Math.round(num(body.max_tokens, 16, 8192, 700)),
         stream: true,
