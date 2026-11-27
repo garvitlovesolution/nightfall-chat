@@ -1,8 +1,9 @@
+// Free OpenRouter models only (ids end in ":free"). The server rejects anything else.
 export const MODELS: { id: string; label: string; note: string }[] = [
-  { id: "mistralai/mistral-nemo", label: "Mistral Nemo", note: "Fast & cheap, great default" },
-  { id: "gryphe/mythomax-l2-13b", label: "MythoMax L2 13B", note: "Classic roleplay model" },
-  { id: "nousresearch/hermes-3-llama-3.1-70b", label: "Hermes 3 70B", note: "Smart, steerable, long replies" },
-  { id: "google/gemini-2.0-flash-001", label: "Gemini 2.0 Flash", note: "Very fast, large context" },
+  { id: "google/gemma-4-31b-it:free", label: "Gemma 4 31B (free)", note: "Best all-round roleplay, default" },
+  { id: "google/gemma-4-26b-a4b-it:free", label: "Gemma 4 26B (free)", note: "Faster, lighter" },
+  { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "Nemotron 3 Ultra (free)", note: "Biggest, smartest, slower" },
+  { id: "nvidia/nemotron-3.5-lightning:free", label: "Nemotron 3.5 Lightning (free)", note: "Very fast" },
 ];
 
 export const DEFAULT_MODEL = MODELS[0].id;

@@ -4,7 +4,6 @@ import type { Settings } from "./types";
 const KEY = "nightfall.settings";
 
 export const DEFAULT_SETTINGS: Settings = {
-  apiKey: "",
   defaultModel: DEFAULT_MODEL,
   temperature: 0.9,
   maxTokens: 700,
@@ -15,7 +14,10 @@ export const DEFAULT_SETTINGS: Settings = {
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) };
+    if (raw) {
+      const { apiKey: _legacy, ...rest } = JSON.parse(raw) as Partial<Settings> & { apiKey?: string };
+      return { ...DEFAULT_SETTINGS, ...rest };
+    }
   } catch {}
   return DEFAULT_SETTINGS;
 }

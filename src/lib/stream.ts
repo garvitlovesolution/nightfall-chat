@@ -3,7 +3,6 @@ export interface StreamOptions {
   model: string;
   temperature: number;
   maxTokens: number;
-  apiKey?: string;
   signal?: AbortSignal;
   onDelta: (text: string) => void;
 }
@@ -13,10 +12,7 @@ export async function streamChat(opts: StreamOptions): Promise<void> {
   const res = await fetch("/api/chat", {
     method: "POST",
     signal: opts.signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(opts.apiKey ? { "x-openrouter-key": opts.apiKey } : {}),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       messages: opts.messages,
       model: opts.model,

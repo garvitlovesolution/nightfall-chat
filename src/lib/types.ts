@@ -70,7 +70,6 @@ export interface Chat {
 }
 
 export interface Settings {
-  apiKey: string;
   defaultModel: string;
   temperature: number;
   maxTokens: number;
