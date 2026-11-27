@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Download, Eye, EyeOff, Upload } from "lucide-react";
+import { Copy, Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { CLOUD_ENABLED, getSyncKey, setSyncKey } from "@/lib/cloud";
 import * as db from "@/lib/db";
@@ -10,7 +10,6 @@ import { Field, Modal } from "./ui";
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, updateSettings, reload, notify } = useApp();
-  const [show, setShow] = useState(false);
   const [syncKey, setKey] = useState(CLOUD_ENABLED ? getSyncKey() : "");
   const fileRef = useRef<HTMLInputElement>(null);
   const preset = MODELS.some((m) => m.id === settings.defaultModel);
@@ -35,29 +34,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="API / Model Settings" onClose={onClose}>
+    <Modal title="Chat Settings" onClose={onClose}>
       <div className="space-y-5">
-        <Field label="OpenRouter API key" hint="Stored only in this browser and sent per-request to your Edge function. Leave empty to use the server's OPENROUTER_API_KEY.">
-          <div className="flex gap-2">
-            <input
-              className="input"
-              type={show ? "text" : "password"}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="sk-or-v1-…"
-              value={settings.apiKey}
-              onChange={(e) => updateSettings({ apiKey: e.target.value.trim() })}
-            />
-            <button onClick={() => setShow(!show)} className="btn-ghost !px-3" aria-label="Toggle key visibility">{show ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-          </div>
-        </Field>
-
-        <Field label="Default model for new chats">
-          <select className="input" value={preset ? settings.defaultModel : "__custom"} onChange={(e) => e.target.value !== "__custom" && updateSettings({ defaultModel: e.target.value })}>
+        <Field label="Default model for new chats" hint="Free models only. They can be slow or rate-limited at busy times.">
+          <select className="input" value={preset ? settings.defaultModel : MODELS[0].id} onChange={(e) => updateSettings({ defaultModel: e.target.value })}>
             {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label} — {m.note}</option>)}
-            <option value="__custom">Custom model id…</option>
           </select>
-          {!preset && <input className="input mt-2" value={settings.defaultModel} onChange={(e) => updateSettings({ defaultModel: e.target.value.trim() })} placeholder="vendor/model-name" />}
         </Field>
 
         <div className="grid grid-cols-2 gap-4">

@@ -14,7 +14,7 @@ const BLANK = {
 };
 
 export function Creator({ editId }: { editId?: string }) {
-  const { characters, settings, go, reload, notify } = useApp();
+  const { characters, go, reload, notify } = useApp();
   const [f, setF] = useState(BLANK);
   const [idea, setIdea] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,10 +39,9 @@ export function Creator({ editId }: { editId?: string }) {
     try {
       const res = await fetch("/api/generate-character", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(settings.apiKey ? { "x-openrouter-key": settings.apiKey } : {}) },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idea: idea.trim() || `${f.name}: ${f.tagline}`,
-          model: "google/gemini-2.0-flash-001",
           existing: { name: f.name, tagline: f.tagline, personality: f.personality },
         }),
       });
@@ -116,7 +115,7 @@ export function Creator({ editId }: { editId?: string }) {
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />} {busy ? "Conjuring…" : "Enhance"}
           </button>
         </div>
-        <p className="mt-2 text-xs text-zinc-500">Expands one sentence into a full personality, scenario, greeting and example dialogue. Needs an OpenRouter key (Settings or server).</p>
+        <p className="mt-2 text-xs text-zinc-500">Expands one sentence into a full personality, scenario, greeting and example dialogue.</p>
       </section>
 
       <div className="grid gap-5 md:grid-cols-[200px_1fr]">

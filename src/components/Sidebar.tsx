@@ -1,6 +1,6 @@
 "use client";
 
-import { Compass, History, KeyRound, PlusCircle, Sparkles, UserRound, X } from "lucide-react";
+import { Compass, History, Settings2, PlusCircle, Sparkles, UserRound, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useApp } from "./AppProvider";
 
@@ -35,7 +35,7 @@ function Nav() {
         <Item icon={<History size={18} />} label="Chat History" active={route.name === "history" || route.name === "chat"} onClick={() => go("history")} />
       </nav>
       <div className="mt-auto">
-        <Item icon={<KeyRound size={18} />} label="API / Model Settings" onClick={() => { setMenuOpen(false); setModal("settings"); }} />
+        <Item icon={<Settings2 size={18} />} label="Settings" onClick={() => { setMenuOpen(false); setModal("settings"); }} />
         <p className="mt-3 px-3 text-[11px] leading-snug text-zinc-600">Local-first: your chats live in this browser.</p>
       </div>
     </div>

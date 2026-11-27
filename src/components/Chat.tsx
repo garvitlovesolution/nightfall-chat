@@ -31,7 +31,7 @@ function IconBtn({ label, onClick, children, disabled }: { label: string; onClic
 }
 
 export function ChatView({ chatId }: { chatId: string }) {
-  const { characters, personas, settings, go, setMenuOpen, notify, newChat } = useApp();
+  const { characters, personas, go, setMenuOpen, notify, newChat } = useApp();
   const [chat, setChat] = useState<Chat | null>(null);
   const [missing, setMissing] = useState(false);
   const [streaming, setStreaming] = useState(false);
@@ -121,7 +121,6 @@ export function ChatView({ chatId }: { chatId: string }) {
         model: cur.model,
         temperature: cur.params.temperature,
         maxTokens: cur.params.maxTokens,
-        apiKey: settings.apiKey || undefined,
         signal: ac.signal,
         onDelta: (d) => {
           // When continuing, make sure the join point never glues two sentences together.
@@ -243,16 +242,10 @@ export function ChatView({ chatId }: { chatId: string }) {
             <select
               aria-label="Model"
               className="max-w-[210px] rounded-lg border border-line bg-card px-2 py-1 text-xs text-zinc-200 outline-none focus:border-violet-500"
-              value={modelKnown ? chat.model : "__custom"}
-              onChange={(e) => {
-                if (e.target.value === "__custom") {
-                  const m = prompt("OpenRouter model id (e.g. anthropic/claude-3.5-haiku):", chat.model);
-                  if (m && /^[\w.\-:/]{3,100}$/.test(m.trim())) commit((c) => ({ ...c, model: m.trim() }));
-                } else commit((c) => ({ ...c, model: e.target.value }));
-              }}
+              value={modelKnown ? chat.model : MODELS[0].id}
+              onChange={(e) => commit((c) => ({ ...c, model: e.target.value }))}
             >
               {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-              <option value="__custom">{modelKnown ? "Custom…" : chat.model}</option>
             </select>
           </label>
           <label className="flex items-center gap-1.5 text-xs text-zinc-500">
