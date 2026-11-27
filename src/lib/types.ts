@@ -1,5 +1,21 @@
-export const CATEGORIES = ["Anime", "Fantasy", "Sci-Fi", "Modern", "Romance", "Villain", "Helper", "Custom"] as const;
+export const CATEGORIES = ["Anime", "Fantasy", "Sci-Fi", "Modern", "Romance", "Drama", "Villain", "Helper", "Custom"] as const;
 export type Category = (typeof CATEGORIES)[number];
+
+export interface MediaItem {
+  id: string;
+  type: "image" | "video";
+  /** http(s) URL or data: URL */
+  src: string;
+}
+
+/** Attached to a chat message. Local video files live in IndexedDB ("media" store) and are referenced by mediaId. */
+export interface Attachment {
+  id: string;
+  type: "image" | "video";
+  src?: string;
+  mediaId?: string;
+  generated?: boolean;
+}
 
 export interface Character {
   id: string;
@@ -12,6 +28,7 @@ export interface Character {
   scenario: string;
   greeting: string;
   exampleDialogue: string;
+  media?: MediaItem[];
   builtin?: boolean;
   createdAt: number;
   updatedAt: number;
@@ -32,6 +49,7 @@ export interface Message {
   /** All variations of this message. Users always have exactly one. */
   swipes: string[];
   swipeIndex: number;
+  attachments?: Attachment[];
   createdAt: number;
 }
 
@@ -53,6 +71,8 @@ export interface ChatParams {
   maxTokens: number;
   directive: string;
   background: boolean;
+  /** Story style preset id (see STORY_STYLES). */
+  style?: string;
 }
 
 export interface Chat {

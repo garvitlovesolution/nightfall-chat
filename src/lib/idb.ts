@@ -3,16 +3,17 @@
  * Falls back to an in-memory Map when IndexedDB is unavailable
  * (e.g. some private-browsing modes) so the app never hard-crashes.
  */
-export type StoreName = "characters" | "personas" | "chats";
-export const STORE_NAMES: StoreName[] = ["characters", "personas", "chats"];
+export type StoreName = "characters" | "personas" | "chats" | "media";
+export const STORE_NAMES: StoreName[] = ["characters", "personas", "chats", "media"];
 
 const DB_NAME = "nightfall";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const mem: Record<StoreName, Map<string, unknown>> = {
   characters: new Map(),
   personas: new Map(),
   chats: new Map(),
+  media: new Map(),
 };
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;

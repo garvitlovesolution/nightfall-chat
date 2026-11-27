@@ -44,3 +44,45 @@ export function autoAvatar(name: string, hueOverride?: number): string {
 export function cssUrl(src: string): string {
   return `url("${src.replace(/"/g, "%22")}")`;
 }
+
+export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+
+export function isVideoUrl(u: string): boolean {
+  return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(u) || u.startsWith("data:video/");
+}
+
+/** Read an image file, downscale (max side px) and re-encode as JPEG data URL. */
+export function fileToImageDataUrl(file: File, maxSide = 1024, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas unsupported"));
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read that image"));
+    };
+    img.src = url;
+  });
+}
+
+/** Download a remote image and shrink it into a data URL so it survives link expiry. */
+export async function urlToDataUrl(src: string, maxSide = 1024): Promise<string> {
+  const res = await fetch(src);
+  if (!res.ok) throw new Error(`Image request failed (${res.status})`);
+  const blob = await res.blob();
+  return fileToImageDataUrl(new File([blob], "img", { type: blob.type || "image/jpeg" }), maxSide);
+}

@@ -1,5 +1,5 @@
 export interface StreamOptions {
-  messages: { role: string; content: string }[];
+  messages: { role: string; content: unknown }[];
   model: string;
   temperature: number;
   maxTokens: number;
