@@ -61,7 +61,7 @@ src/lib/prompt.ts             System-prompt builder, lorebook trigger logic
 ```
 All API routes use `export const runtime = 'edge'` and only Web APIs (`fetch`, `Request`, `Response`, streams) — no `fs`, `path` or Node `crypto`.
 
-API key precedence: the user's key (sent as the `x-openrouter-key` header) → server `OPENROUTER_API_KEY`.
+The OpenRouter key is read only from the server secret `OPENROUTER_API_KEY`; client-supplied keys are ignored.
 
 ## Optional cloud sync (D1 or KV)
 Off by default. To enable cross-device sync:
